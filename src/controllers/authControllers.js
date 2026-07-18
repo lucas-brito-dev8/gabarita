@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken')
 const pool = require('../config/db')
+const bcrypt = require('bcrypt')
 
 const SECRET = process.env.JWT_SECRET
 
@@ -14,7 +15,7 @@ async function register(req, res) {
         )
 
         if (existing.rows.length > 0) {
-            return res.status(401).send("Email is already registered.")
+            return res.status(401).send("Esse email já foi registrado.")
         }
 
         const result = await pool.query(
@@ -26,17 +27,58 @@ async function register(req, res) {
 
         const token = jwt.sign({ id: user.id, email: user.email }, SECRET)
 
-        res.send('User created!')
+        res.status(201).json({ id: user.id, email: user.email, token: token })
     } catch (e) {
         console.log(e)
-        return res.status(500).send('Internal server error.')
+        return res.status(500).send('Erro interno do servidor.')
     }
 }
 
 async function login(req, res) {
     try {
+        const { email, password } = req.body
 
-    } catch(e) {
-        
+        const user = await pool.query('SELECT * FROM users WHERE email = $1',
+            [email]
+        )
+
+        if (user.rows.length === 0) {
+            return res.status(401).send('Usuário não encontrado.')
+        }
+
+        const userPassword = user.rows[0].hash_password
+        const compare = await bcrypt.compare(password, userPassword)
+
+        if (!compare) {
+            return res.status(403).send('Senha inválida.')
+        }
+
+        const token = jwt.sign({ id: user.rows[0].id, email: user.rows[0].email }, SECRET)
+
+        res.status(201).json({ id: user.rows[0].id, email: user.rows[0].email, token: token })
+    } catch (e) {
+        console.log(e)
+        return res.status(500).send('Erro interno do servidor.')
     }
 }
+
+async function profile(req, res) {
+    try {
+        const fetchUser = await pool.query('SELECT id, email FROM users WHERE id = $1',
+            [req.user.id]
+        )
+
+        if (fetchUser.rows.length === 0) {
+            return res.status(404).send('Usuário não existe.')
+        }
+
+        const user = fetchUser.rows[0]
+
+        res.json({ id: user.id, email: user.email })
+    } catch (e) {
+        console.log(e)
+        return res.status(500).send('Erro interno do servidor')
+    }
+}
+
+module.exports = { register, login, profile }

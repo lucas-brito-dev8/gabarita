@@ -7,7 +7,7 @@ function verifyToken(req, res, next) {
         const headersAuth = req.headers.authorization
 
         if (!headersAuth) {
-            return res.status(401).send('Token not provided.')
+            return res.status(401).send('Token inexistente.')
         }
 
         const token = headersAuth.split(' ')[1]
@@ -18,11 +18,11 @@ function verifyToken(req, res, next) {
         next()
     } catch(e) {
         if (e.name === 'JsonWebTokenError') {
-            return res.status(403).send('Invalid token.')
+            return res.status(403).send('Token inválido.')
         }
 
         if (e.name === 'TokenExpiredError') {
-            return res.status(403).send('Token expired. Log in again.')
+            return res.status(403).send('Token expirou. Faça log in novamente.')
         }
 
         return res.status(401).send(e.message)
