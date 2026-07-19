@@ -6,7 +6,7 @@ const SECRET = process.env.JWT_SECRET
 
 async function register(req, res) {
     try {
-        const { email, password } = req.body
+        const { name, email, password } = req.body
         const hashedPassword = await bcrypt.hash(password, 10)
 
         const existing = await pool.query(
@@ -19,15 +19,15 @@ async function register(req, res) {
         }
 
         const result = await pool.query(
-            "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING *",
-            [email, hashedPassword]
+            "INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING *",
+            [name, email, hashedPassword]
         )
 
         const user = result.rows[0]
 
-        const token = jwt.sign({ id: user.id, email: user.email }, SECRET)
+        const token = jwt.sign({ name: user.name, id: user.id, email: user.email }, SECRET)
 
-        res.status(201).json({ id: user.id, email: user.email, token: token })
+        res.status(201).json({ name: user.name, id: user.id, email: user.email, token: token })
     } catch (e) {
         console.log(e)
         return res.status(500).send('Erro interno do servidor.')
@@ -46,16 +46,16 @@ async function login(req, res) {
             return res.status(401).send('Usuário não encontrado.')
         }
 
-        const userPassword = user.rows[0].hash_password
+        const userPassword = user.rows[0].password_hash
         const compare = await bcrypt.compare(password, userPassword)
 
         if (!compare) {
             return res.status(403).send('Senha inválida.')
         }
 
-        const token = jwt.sign({ id: user.rows[0].id, email: user.rows[0].email }, SECRET)
+        const token = jwt.sign({ name: user.rows[0].name, id: user.rows[0].id, email: user.rows[0].email }, SECRET)
 
-        res.status(201).json({ id: user.rows[0].id, email: user.rows[0].email, token: token })
+        res.status(201).json({ name: user.rows[0].name, id: user.rows[0].id, email: user.rows[0].email, token: token })
     } catch (e) {
         console.log(e)
         return res.status(500).send('Erro interno do servidor.')
@@ -64,7 +64,7 @@ async function login(req, res) {
 
 async function profile(req, res) {
     try {
-        const fetchUser = await pool.query('SELECT id, email FROM users WHERE id = $1',
+        const fetchUser = await pool.query('SELECT id, name, email FROM users WHERE id = $1',
             [req.user.id]
         )
 
@@ -74,7 +74,7 @@ async function profile(req, res) {
 
         const user = fetchUser.rows[0]
 
-        res.json({ id: user.id, email: user.email })
+        res.json({ name: user.name, id: user.id, email: user.email })
     } catch (e) {
         console.log(e)
         return res.status(500).send('Erro interno do servidor')
